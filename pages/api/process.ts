@@ -27,7 +27,7 @@ export default async function handler(
 
       // Convert the array of cookie objects to an array of cookie strings
       const cookieStrings = cookiesArray.map(
-        (cookie) =>
+        (cookie: { key: any; value: any; domain: any; path: any; secure: any; httpOnly: any; sameSite: any; }) =>
           `${cookie.key}=${cookie.value}; Domain=${cookie.domain}; Path=${cookie.path}; ${cookie.secure ? "Secure" : ""
           }; ${cookie.httpOnly ? "HttpOnly" : ""}; SameSite=${cookie.sameSite || "Lax"}`
       );
