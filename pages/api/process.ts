@@ -1,7 +1,7 @@
 import { Scraper, SearchMode, Tweet } from "agent-twitter-client";
 import { NextApiRequest, NextApiResponse } from "next";
-import fs from "fs";
-import path from "path";
+import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
+import { getFirebaseApp } from "../../app/firebase";
 
 export default async function handler(
   req: NextApiRequest,
@@ -16,23 +16,40 @@ export default async function handler(
 
     const scraper = new Scraper();
 
-    const cookiesFilePath = path.join(process.cwd(), "twitterCookies.json");
+    const db = getFirestore(getFirebaseApp());
+    const cookiesDocRef = doc(db, "twitterCookies", "cookies");
 
-    if (fs.existsSync(cookiesFilePath)) {
-      const cookiesData = fs.readFileSync(cookiesFilePath, "utf-8");
-      const cookiesArray = JSON.parse(cookiesData);
+    const cookiesDocSnap = await getDoc(cookiesDocRef);
+
+    if (cookiesDocSnap.exists()) {
+      const cookiesData = cookiesDocSnap.data();
+      const cookiesArray = cookiesData.cookies;
 
       // Convert the array of cookie objects to an array of cookie strings
       const cookieStrings = cookiesArray.map(
-        (cookie: { key: any; value: any; domain: any; path: any; secure: any; httpOnly: any; sameSite: any; }) =>
-          `${cookie.key}=${cookie.value}; Domain=${cookie.domain}; Path=${cookie.path}; ${cookie.secure ? "Secure" : ""}; ${cookie.httpOnly ? "HttpOnly" : ""}; SameSite=${cookie.sameSite || "Lax"}`
+        (cookie) =>
+          `${cookie.key}=${cookie.value}; Domain=${cookie.domain}; Path=${cookie.path}; ${cookie.secure ? "Secure" : ""
+          }; ${cookie.httpOnly ? "HttpOnly" : ""}; SameSite=${cookie.sameSite || "Lax"}`
       );
 
       await scraper.setCookies(cookieStrings);
     } else {
       await scraper.login(twitterUsername, twitterPassword, twitterEmail);
       const cookies = await scraper.getCookies();
-      fs.writeFileSync(cookiesFilePath, JSON.stringify(cookies), "utf-8");
+
+      // Convert the Cookie objects to plain objects
+      const serializedCookies = cookies.map((cookie) => ({
+        key: cookie.key,
+        value: cookie.value,
+        domain: cookie.domain,
+        path: cookie.path,
+        expires: cookie.expires || null,
+        httpOnly: cookie.httpOnly || false,
+        secure: cookie.secure || false,
+        sameSite: cookie.sameSite || null,
+      }));
+
+      await setDoc(cookiesDocRef, { cookies: serializedCookies });
     }
 
     // Fetch user's tweets and threads they've participated in
