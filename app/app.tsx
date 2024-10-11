@@ -26,81 +26,69 @@ export default function App() {
 
   const [credentials, setCredentialsData] = useState<Credentials | undefined>(getCredentials());
 
-  const setCredentials = useMemo(() => {
-    return (credentials: Credentials | undefined): void => {
-      if (credentials) {
-        if (typeof window !== "undefined") {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(credentials));
-        } else {
-          credentialCache[credentials.userId] = credentials;
-        }
-        setCredentialsData(credentials);
+  const setCredentials = useCallback((credentials: Credentials | undefined): void => {
+    if (credentials) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(credentials));
       } else {
-        localStorage.removeItem(STORAGE_KEY);
-        setCredentialsData(undefined);
+        credentialCache[credentials.userId] = credentials;
       }
-    };
+      setCredentialsData(credentials);
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+      setCredentialsData(undefined);
+    }
   }, []);
 
-  const connectTwitter = useMemo(() => {
-    return async () => {
-      const auth = getFirebaseAuth();
+  const connectTwitter = useCallback(async () => {
+    const auth = getFirebaseAuth();
 
-      const provider = new TwitterAuthProvider();
-      const res = await signInWithPopup(auth, provider);
-      console.log(res);
-      const credential = TwitterAuthProvider.credentialFromResult(res);
+    const provider = new TwitterAuthProvider();
+    const res = await signInWithPopup(auth, provider);
+    console.log(res);
+    const credential = TwitterAuthProvider.credentialFromResult(res);
+    console.log(credential);
+    if (!credential?.accessToken || !credential?.secret) {
       console.log(credential);
-      if (!credential?.accessToken || !credential?.secret) {
-        console.log(credential);
-        throw new Error("Invalid Twitter credentials.");
-      }
+      throw new Error("Invalid Twitter credentials.");
+    }
 
-      console.log("credential", credential);
+    console.log("credential", credential);
 
-      const result = {
-        accessToken: credential.accessToken,
-        secret: credential.secret,
-        userId: (res.user as any).reloadUserInfo.screenName, // Extract the screen name
-      };
-
-      setCredentials(result);
-
-      return result;
+    const result = {
+      accessToken: credential.accessToken,
+      secret: credential.secret,
+      userId: (res.user as any).reloadUserInfo.screenName,
     };
-  }, []);
 
-  const useConnectTwitter = useMemo(() => {
-    return () => {
-      const [inFlight, setInFlight] = useState(false);
+    setCredentials(result);
 
-      const callback = useCallback(() => {
-        setInFlight(true);
-        connectTwitter()
-          .then((credentials) => {
-            setCredentials(credentials);
-          })
-          .finally(() => {
-            setInFlight(false);
-          });
-      }, [setCredentials]);
+    return result;
+  }, [setCredentials]);
 
-      return [callback, inFlight] as const;
-    };
-  }, []);
+  const [inFlight, setInFlight] = useState(false);
 
-  const [connect, inFlight] = useConnectTwitter();
+  const connect = useCallback(() => {
+    setInFlight(true);
+    connectTwitter()
+      .then((credentials) => {
+        setCredentials(credentials);
+      })
+      .finally(() => {
+        setInFlight(false);
+      });
+  }, [connectTwitter, setCredentials]);
 
   const disconnect = useCallback(() => {
     setCredentials(undefined);
-  }, [setCredentials]);
+  }, []);
 
   const fetchData = useCallback(async (event: { preventDefault: () => void; }) => {
     event.preventDefault();
 
     console.log(credentials);
 
-    // Post the tweet to the API.
+    // Post the tweet to the API.  
     const res = await fetch("/api/process", {
       method: "POST",
       headers: {

@@ -1,5 +1,4 @@
 import Document, { Html, Head, Main, NextScript } from "next/document";
-import { getInitColorSchemeScript } from "@mui/joy/styles";
 
 export default class MyDocument extends Document {
   render() {
@@ -7,7 +6,6 @@ export default class MyDocument extends Document {
       <Html>
         <Head></Head>
         <body>
-          {getInitColorSchemeScript()}
           <Main />
           <NextScript />
         </body>
